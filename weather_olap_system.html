@@ -1,0 +1,1320 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AtmosSense — Weather Forecasting System Using OLAP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+--bg:#040d1a;--bg2:#071428;--bg3:#0a1c36;
+--glass:rgba(10,28,54,0.6);--glass2:rgba(255,255,255,0.04);
+--border:rgba(0,212,255,0.18);--border2:rgba(0,212,255,0.35);
+--cyan:#00d4ff;--cyan2:#00a8cc;--cyan3:rgba(0,212,255,0.12);
+--gold:#ffd700;--green:#00ff88;--red:#ff4d6d;--orange:#ff9500;
+--text:#e8f4fd;--text2:#8bb8d4;--text3:#4a7a9b;
+--font:'Exo 2',sans-serif;--font2:'Orbitron',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* LAYOUT */
+.app{display:flex;min-height:100vh;}
+.sidebar{width:220px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;transition:transform 0.3s;}
+.sidebar.collapsed{transform:translateX(-220px);}
+.main{margin-left:220px;flex:1;transition:margin-left 0.3s;}
+.main.expanded{margin-left:0;}
+
+/* SIDEBAR */
+.logo{padding:20px 16px;border-bottom:1px solid var(--border);}
+.logo-title{font-family:var(--font2);font-size:14px;color:var(--cyan);font-weight:700;letter-spacing:2px;}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:1px;margin-top:3px;}
+.nav-section{padding:12px 0;}
+.nav-label{font-size:10px;color:var(--text3);letter-spacing:2px;padding:8px 16px 4px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;color:var(--text2);transition:all 0.2s;border-left:3px solid transparent;}
+.nav-item:hover,.nav-item.active{color:var(--cyan);background:var(--cyan3);border-left-color:var(--cyan);}
+.nav-item svg{width:16px;height:16px;flex-shrink:0;}
+
+/* TOPBAR */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:90;}
+.topbar-left{display:flex;align-items:center;gap:16px;}
+.menu-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;color:var(--text2);}
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;}
+.search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:13px;width:180px;}
+.search-bar input::placeholder{color:var(--text3);}
+.search-btn{background:var(--cyan);border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:var(--font2);color:#000;font-weight:700;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.badge{background:var(--red);color:#fff;font-size:10px;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--glass2);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;cursor:pointer;}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),#0066aa);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;}
+.time-display{font-family:var(--font2);font-size:11px;color:var(--cyan);background:var(--cyan3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;}
+
+/* PAGES */
+.page{display:none;padding:24px;}
+.page.active{display:block;}
+
+/* GLASS CARD */
+.glass-card{background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:20px;backdrop-filter:blur(20px);}
+.glass-card-glow{box-shadow:0 0 20px rgba(0,212,255,0.08);}
+
+/* HERO WEATHER */
+.weather-hero{background:linear-gradient(135deg,rgba(0,100,180,0.3),rgba(0,30,80,0.8));border:1px solid var(--border2);border-radius:16px;padding:28px;margin-bottom:20px;position:relative;overflow:hidden;}
+.weather-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(0,212,255,0.15),transparent 70%);pointer-events:none;}
+.city-name{font-family:var(--font2);font-size:11px;color:var(--cyan);letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;}
+.temp-big{font-family:var(--font2);font-size:72px;font-weight:900;color:#fff;line-height:1;margin-bottom:4px;}
+.temp-big span{font-size:32px;color:var(--cyan);}
+.weather-desc{font-size:16px;color:var(--text2);margin-bottom:20px;}
+.weather-meta{display:flex;gap:24px;flex-wrap:wrap;}
+.meta-item{display:flex;flex-direction:column;gap:2px;}
+.meta-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;}
+.meta-value{font-size:14px;color:var(--text);font-weight:500;}
+.weather-icon-big{position:absolute;right:28px;top:24px;font-size:80px;opacity:0.7;}
+
+/* GRID SYSTEM */
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+
+/* STAT CARDS */
+.stat-card{background:var(--glass2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;}
+.stat-icon{font-size:22px;margin-bottom:2px;}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;}
+.stat-value{font-family:var(--font2);font-size:20px;color:var(--text);font-weight:700;}
+.stat-unit{font-size:11px;color:var(--text2);}
+.stat-trend{font-size:11px;display:flex;align-items:center;gap:4px;}
+.trend-up{color:var(--green);}
+.trend-down{color:var(--red);}
+
+/* FORECAST CARDS */
+.forecast-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
+.forecast-day{background:var(--glass2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:90px;flex-shrink:0;cursor:pointer;transition:all 0.2s;}
+.forecast-day:hover,.forecast-day.active{border-color:var(--cyan);background:var(--cyan3);}
+.f-day{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;}
+.f-icon{font-size:26px;}
+.f-high{font-size:15px;font-weight:600;color:var(--text);}
+.f-low{font-size:12px;color:var(--text3);}
+.f-rain{font-size:10px;color:#60aaff;}
+
+/* ALERT CARDS */
+.alert-card{border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid;display:flex;align-items:flex-start;gap:12px;}
+.alert-card.warning{background:rgba(255,149,0,0.1);border-color:var(--orange);}
+.alert-card.danger{background:rgba(255,77,109,0.1);border-color:var(--red);}
+.alert-card.info{background:rgba(0,212,255,0.1);border-color:var(--cyan);}
+.alert-icon{font-size:22px;}
+.alert-title{font-size:14px;font-weight:600;margin-bottom:3px;}
+.alert-desc{font-size:12px;color:var(--text2);}
+.alert-time{font-size:11px;color:var(--text3);margin-top:4px;}
+
+/* SECTION HEADERS */
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sec-title{font-family:var(--font2);font-size:13px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;}
+.sec-badge{background:var(--cyan3);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--cyan);}
+.sec-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;color:var(--text2);font-family:var(--font);}
+.sec-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* TABS */
+.tab-group{display:flex;gap:6px;margin-bottom:16px;background:var(--glass2);border:1px solid var(--border);border-radius:10px;padding:4px;}
+.tab{padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--text2);transition:all 0.2s;border:none;background:none;font-family:var(--font);}
+.tab.active{background:var(--cyan);color:#000;font-weight:600;}
+
+/* OLAP */
+.olap-cube{background:var(--glass2);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.cube-title{font-family:var(--font2);font-size:11px;color:var(--cyan);letter-spacing:2px;margin-bottom:12px;}
+.dim-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--cyan);margin:4px;}
+.fact-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--gold);margin:4px;}
+
+/* PIVOT TABLE */
+.pivot-table{width:100%;border-collapse:collapse;font-size:12px;}
+.pivot-table th{background:rgba(0,212,255,0.12);color:var(--cyan);padding:8px 12px;text-align:left;border:1px solid var(--border);font-family:var(--font2);font-size:10px;letter-spacing:1px;}
+.pivot-table td{padding:8px 12px;border:1px solid rgba(0,212,255,0.08);color:var(--text2);}
+.pivot-table tr:hover td{background:var(--cyan3);}
+.pivot-table .cell-hot{color:var(--red);font-weight:600;}
+.pivot-table .cell-cool{color:#60aaff;font-weight:600;}
+.pivot-table .cell-ok{color:var(--green);font-weight:600;}
+
+/* AQI METER */
+.aqi-bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#00ff88,#aaff00,#ffdd00,#ff9500,#ff4d6d);position:relative;margin:8px 0;}
+.aqi-pointer{width:12px;height:12px;background:#fff;border-radius:50%;position:absolute;top:-2px;transform:translateX(-50%);border:2px solid var(--bg2);}
+
+/* MAP PLACEHOLDER */
+.map-placeholder{background:linear-gradient(135deg,rgba(0,40,100,0.5),rgba(0,80,160,0.3));border:1px solid var(--border);border-radius:12px;height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden;}
+.map-grid{position:absolute;inset:0;opacity:0.1;background-image:linear-gradient(var(--cyan) 1px,transparent 1px),linear-gradient(90deg,var(--cyan) 1px,transparent 1px);background-size:30px 30px;}
+.map-dot{width:10px;height:10px;background:var(--cyan);border-radius:50%;box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite;}
+.map-ring{width:40px;height:40px;border:2px solid var(--cyan);border-radius:50%;position:absolute;animation:ripple 2s infinite;opacity:0.6;}
+.map-ring2{animation-delay:0.7s;}
+
+/* PREDICTION */
+.pred-card{background:linear-gradient(135deg,rgba(0,100,50,0.2),rgba(0,50,25,0.4));border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;}
+.pred-val{font-family:var(--font2);font-size:28px;color:var(--green);font-weight:700;}
+.pred-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;}
+.confidence{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.conf-bar{flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;}
+.conf-fill{height:100%;background:var(--green);border-radius:2px;}
+.conf-text{font-size:11px;color:var(--green);}
+
+/* AUTH PAGE */
+.auth-page{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+.auth-card{background:var(--glass);border:1px solid var(--border2);border-radius:16px;padding:36px;width:100%;max-width:400px;backdrop-filter:blur(20px);}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-title{font-family:var(--font2);font-size:18px;color:var(--cyan);letter-spacing:2px;}
+.auth-sub{font-size:12px;color:var(--text3);margin-top:6px;}
+.form-group{margin-bottom:16px;}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:6px;display:block;letter-spacing:1px;text-transform:uppercase;}
+.form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color 0.2s;}
+.form-input:focus{border-color:var(--cyan);}
+.form-input::placeholder{color:var(--text3);}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--cyan),var(--cyan2));border:none;border-radius:8px;padding:12px;color:#000;font-family:var(--font2);font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;}
+.btn-primary:hover{opacity:0.85;}
+.auth-links{display:flex;justify-content:space-between;margin-top:16px;font-size:12px;}
+.auth-link{color:var(--cyan);cursor:pointer;text-decoration:none;}
+.auth-link:hover{text-decoration:underline;}
+.divider{text-align:center;color:var(--text3);font-size:12px;margin:16px 0;position:relative;}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+.divider::before{left:0;}
+.divider::after{right:0;}
+.role-toggle{display:flex;gap:8px;margin-bottom:16px;}
+.role-btn{flex:1;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;color:var(--text2);font-family:var(--font);font-size:12px;cursor:pointer;transition:all 0.2s;}
+.role-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan3);}
+
+/* ADMIN */
+.admin-stat{background:var(--glass2);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.admin-num{font-family:var(--font2);font-size:24px;font-weight:700;color:var(--cyan);}
+.admin-label{font-size:12px;color:var(--text3);margin-top:4px;}
+.data-table{width:100%;border-collapse:collapse;font-size:12px;}
+.data-table th{background:rgba(0,212,255,0.08);color:var(--text2);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:1px;}
+.data-table td{padding:10px 14px;border-bottom:1px solid rgba(0,212,255,0.06);color:var(--text);}
+.data-table tr:hover td{background:var(--cyan3);}
+.status-pill{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600;}
+.status-active{background:rgba(0,255,136,0.15);color:var(--green);}
+.status-warn{background:rgba(255,149,0,0.15);color:var(--orange);}
+.status-danger{background:rgba(255,77,109,0.15);color:var(--red);}
+.action-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer;font-size:11px;color:var(--text2);font-family:var(--font);}
+.action-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* ABOUT */
+.schema-box{background:rgba(0,30,60,0.8);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:11px;color:#7ec8e3;line-height:1.8;overflow-x:auto;}
+.arch-node{background:var(--glass2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+.arch-label{font-family:var(--font2);font-size:10px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;}
+.arch-detail{font-size:11px;color:var(--text3);margin-top:4px;}
+.arrow-right{display:flex;align-items:center;color:var(--border2);font-size:20px;}
+
+/* ANIMATIONS */
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--cyan);}50%{box-shadow:0 0 20px var(--cyan);}}
+@keyframes ripple{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(3);opacity:0;}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scanline{0%{top:0;}100%{top:100%;}}
+.page.active{animation:fadeIn 0.3s ease;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-220px);}
+  .sidebar.open{transform:translateX(0);}
+  .main{margin-left:0;}
+  .grid-4{grid-template-columns:repeat(2,1fr);}
+  .grid-3{grid-template-columns:1fr;}
+  .grid-2{grid-template-columns:1fr;}
+  .temp-big{font-size:48px;}
+  .weather-icon-big{font-size:50px;}
+}
+
+/* TOGGLE */
+.toggle-wrapper{display:flex;align-items:center;gap:8px;}
+.toggle{width:36px;height:20px;background:var(--border);border-radius:10px;position:relative;cursor:pointer;transition:background 0.2s;}
+.toggle.on{background:var(--cyan);}
+.toggle-knob{width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left 0.2s;}
+.toggle.on .toggle-knob{left:18px;}
+
+/* HOURLY */
+.hourly-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;}
+.hourly-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px;padding:10px 4px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;flex-shrink:0;}
+.h-time{font-size:10px;color:var(--text3);}
+.h-icon{font-size:20px;}
+.h-temp{font-size:13px;font-weight:600;color:var(--text);}
+.h-rain{font-size:10px;color:#60aaff;}
+
+/* PROGRESS */
+.prog-bar{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.6s ease;}
+
+/* CONTACT */
+.contact-form .form-group{margin-bottom:14px;}
+.info-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.info-icon{width:32px;height:32px;background:var(--cyan3);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="logo">
+    <div style="font-size:26px;margin-bottom:6px;">🌩️</div>
+    <div class="logo-title">AtmosSense</div>
+    <div class="logo-sub">OLAP Weather System</div>
+  </div>
+  <div class="nav-section" style="flex:1;overflow-y:auto;">
+    <div class="nav-label">Main</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('forecast')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Forecast
+    </div>
+    <div class="nav-item" onclick="showPage('analytics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      OLAP Analytics
+    </div>
+    <div class="nav-item" onclick="showPage('prediction')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      ML Prediction
+    </div>
+    <div class="nav-item" onclick="showPage('alerts')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alerts
+      <span class="badge">3</span>
+    </div>
+    <div class="nav-label">Tools</div>
+    <div class="nav-item" onclick="showPage('map')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Weather Map
+    </div>
+    <div class="nav-item" onclick="showPage('reports')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Reports
+    </div>
+    <div class="nav-label">Info</div>
+    <div class="nav-item" onclick="showPage('about')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      About Project
+    </div>
+    <div class="nav-item" onclick="showPage('contact')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Contact
+    </div>
+    <div class="nav-item" onclick="showPage('admin')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Admin Panel
+    </div>
+    <div class="nav-item" onclick="showPage('login')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Login / Auth
+    </div>
+  </div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);text-align:center;">
+    B.Tech AI & Data Science<br>Mini Project v1.0
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main" id="main">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div class="search-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search city, state, country..." id="searchInput">
+        <button class="search-btn" onclick="searchCity()">GO</button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="time-display" id="clock">00:00:00</div>
+      <div style="position:relative;cursor:pointer;" onclick="showPage('alerts')">
+        🔔
+        <span class="badge" style="position:absolute;top:-4px;right:-4px;">3</span>
+      </div>
+      <div class="user-chip" onclick="showPage('login')">
+        <div class="avatar">AD</div>
+        <span style="font-size:12px;color:var(--text2);">Admin</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DASHBOARD PAGE ==================== -->
+  <div class="page active" id="page-dashboard">
+
+    <!-- HERO -->
+    <div class="weather-hero">
+      <div class="weather-icon-big">⛈️</div>
+      <div class="city-name">📍 Chennai, Tamil Nadu, India</div>
+      <div class="temp-big">31<span>°C</span></div>
+      <div class="weather-desc">Partly Cloudy with Thunderstorm Activity</div>
+      <div class="weather-meta">
+        <div class="meta-item"><div class="meta-label">Feels Like</div><div class="meta-value">35°C</div></div>
+        <div class="meta-item"><div class="meta-label">Min / Max</div><div class="meta-value">27° / 34°</div></div>
+        <div class="meta-item"><div class="meta-label">Updated</div><div class="meta-value">2 min ago</div></div>
+        <div class="meta-item"><div class="meta-label">Coordinates</div><div class="meta-value">13.08°N 80.27°E</div></div>
+      </div>
+    </div>
+
+    <!-- STAT GRID -->
+    <div class="grid-4" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-icon">💧</div>
+        <div class="stat-label">Humidity</div>
+        <div class="stat-value">78<span class="stat-unit">%</span></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:78%;background:linear-gradient(90deg,#00aaff,#0066cc);"></div></div>
+        <div class="stat-trend trend-up">▲ 5% from morning</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💨</div>
+        <div class="stat-label">Wind Speed</div>
+        <div class="stat-value">22<span class="stat-unit"> km/h</span></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Direction: NE · SSW</div>
+        <div class="stat-trend trend-up">▲ Gusty conditions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🌡️</div>
+        <div class="stat-label">Pressure</div>
+        <div class="stat-value">1008<span class="stat-unit"> hPa</span></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Slightly Low</div>
+        <div class="stat-trend trend-down">▼ -3 hPa in 3hr</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">👁️</div>
+        <div class="stat-label">Visibility</div>
+        <div class="stat-value">6.2<span class="stat-unit"> km</span></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Moderate</div>
+        <div class="stat-trend" style="color:var(--orange);">⚠ Haze possible</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <!-- LEFT COL -->
+      <div>
+        <!-- HOURLY FORECAST -->
+        <div class="glass-card" style="margin-bottom:16px;">
+          <div class="sec-header">
+            <div class="sec-title">Hourly Forecast</div>
+            <div class="sec-badge">24h</div>
+          </div>
+          <div class="hourly-row">
+            <div class="hourly-item"><div class="h-time">Now</div><div class="h-icon">⛈️</div><div class="h-temp">31°</div><div class="h-rain">60%</div></div>
+            <div class="hourly-item"><div class="h-time">13:00</div><div class="h-icon">🌧️</div><div class="h-temp">30°</div><div class="h-rain">70%</div></div>
+            <div class="hourly-item"><div class="h-time">14:00</div><div class="h-icon">🌦️</div><div class="h-temp">30°</div><div class="h-rain">45%</div></div>
+            <div class="hourly-item"><div class="h-time">15:00</div><div class="h-icon">🌤️</div><div class="h-temp">32°</div><div class="h-rain">20%</div></div>
+            <div class="hourly-item"><div class="h-time">16:00</div><div class="h-icon">☀️</div><div class="h-temp">33°</div><div class="h-rain">10%</div></div>
+            <div class="hourly-item"><div class="h-time">17:00</div><div class="h-icon">🌤️</div><div class="h-temp">32°</div><div class="h-rain">15%</div></div>
+            <div class="hourly-item"><div class="h-time">18:00</div><div class="h-icon">🌙</div><div class="h-temp">30°</div><div class="h-rain">5%</div></div>
+            <div class="hourly-item"><div class="h-time">19:00</div><div class="h-icon">🌙</div><div class="h-temp">29°</div><div class="h-rain">3%</div></div>
+            <div class="hourly-item"><div class="h-time">20:00</div><div class="h-icon">⭐</div><div class="h-temp">28°</div><div class="h-rain">2%</div></div>
+          </div>
+        </div>
+
+        <!-- 7-DAY FORECAST -->
+        <div class="glass-card">
+          <div class="sec-header">
+            <div class="sec-title">7-Day Forecast</div>
+            <div class="sec-badge">Week</div>
+          </div>
+          <div class="forecast-row">
+            <div class="forecast-day active"><div class="f-day">Today</div><div class="f-icon">⛈️</div><div class="f-high">31°</div><div class="f-low">27°</div><div class="f-rain">💧60%</div></div>
+            <div class="forecast-day"><div class="f-day">Sat</div><div class="f-icon">🌧️</div><div class="f-high">29°</div><div class="f-low">25°</div><div class="f-rain">💧80%</div></div>
+            <div class="forecast-day"><div class="f-day">Sun</div><div class="f-icon">🌦️</div><div class="f-high">30°</div><div class="f-low">26°</div><div class="f-rain">💧40%</div></div>
+            <div class="forecast-day"><div class="f-day">Mon</div><div class="f-icon">☀️</div><div class="f-high">34°</div><div class="f-low">28°</div><div class="f-rain">💧5%</div></div>
+            <div class="forecast-day"><div class="f-day">Tue</div><div class="f-icon">🌤️</div><div class="f-high">33°</div><div class="f-low">27°</div><div class="f-rain">💧10%</div></div>
+            <div class="forecast-day"><div class="f-day">Wed</div><div class="f-icon">⛅</div><div class="f-high">31°</div><div class="f-low">26°</div><div class="f-rain">💧25%</div></div>
+            <div class="forecast-day"><div class="f-day">Thu</div><div class="f-icon">🌧️</div><div class="f-high">28°</div><div class="f-low">24°</div><div class="f-rain">💧70%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COL -->
+      <div>
+        <!-- AQI -->
+        <div class="glass-card" style="margin-bottom:16px;">
+          <div class="sec-header">
+            <div class="sec-title">Air Quality Index</div>
+            <div class="sec-badge">AQI 142</div>
+          </div>
+          <div style="font-size:32px;font-family:var(--font2);color:var(--orange);font-weight:700;margin-bottom:4px;">142</div>
+          <div style="font-size:13px;color:var(--orange);margin-bottom:8px;">⚠️ Unhealthy for Sensitive Groups</div>
+          <div class="aqi-bar"><div class="aqi-pointer" style="left:40%;"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:12px;">
+            <span>Good</span><span>Moderate</span><span>Unhealthy</span><span>Hazardous</span>
+          </div>
+          <div class="grid-2" style="gap:8px;">
+            <div style="font-size:12px;"><span style="color:var(--text3);">PM2.5:</span> <span style="color:var(--text);">58 μg/m³</span></div>
+            <div style="font-size:12px;"><span style="color:var(--text3);">PM10:</span> <span style="color:var(--text);">97 μg/m³</span></div>
+            <div style="font-size:12px;"><span style="color:var(--text3);">O₃:</span> <span style="color:var(--text);">74 ppb</span></div>
+            <div style="font-size:12px;"><span style="color:var(--text3);">NO₂:</span> <span style="color:var(--text);">31 ppb</span></div>
+          </div>
+        </div>
+
+        <!-- SUN / MOON -->
+        <div class="glass-card" style="margin-bottom:16px;">
+          <div class="sec-header"><div class="sec-title">Sun & Moon</div></div>
+          <div class="grid-2" style="gap:12px;">
+            <div style="text-align:center;padding:12px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:10px;">
+              <div style="font-size:28px;">🌅</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Sunrise</div>
+              <div style="font-family:var(--font2);font-size:16px;color:var(--gold);">05:58 AM</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:rgba(100,100,255,0.08);border:1px solid rgba(100,100,255,0.2);border-radius:10px;">
+              <div style="font-size:28px;">🌇</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Sunset</div>
+              <div style="font-family:var(--font2);font-size:16px;color:#aaaaff;">06:28 PM</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2);">
+            <span>🌙 Moon Phase: Waxing Gibbous</span>
+            <span style="color:var(--text3);">78% illuminated</span>
+          </div>
+        </div>
+
+        <!-- UV INDEX -->
+        <div class="glass-card">
+          <div class="sec-header"><div class="sec-title">UV Index & More</div></div>
+          <div class="grid-2" style="gap:8px;">
+            <div style="padding:10px;background:rgba(255,100,0,0.1);border:1px solid rgba(255,100,0,0.2);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">UV Index</div>
+              <div style="font-family:var(--font2);font-size:22px;color:var(--orange);">8</div>
+              <div style="font-size:11px;color:var(--orange);">Very High</div>
+            </div>
+            <div style="padding:10px;background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.2);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Dew Point</div>
+              <div style="font-family:var(--font2);font-size:22px;color:var(--cyan);">25°C</div>
+              <div style="font-size:11px;color:var(--text2);">Muggy</div>
+            </div>
+            <div style="padding:10px;background:rgba(0,255,100,0.1);border:1px solid rgba(0,255,100,0.2);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Cloud Cover</div>
+              <div style="font-family:var(--font2);font-size:22px;color:var(--green);">72%</div>
+              <div style="font-size:11px;color:var(--text2);">Mostly Cloudy</div>
+            </div>
+            <div style="padding:10px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Rain Chance</div>
+              <div style="font-family:var(--font2);font-size:22px;color:var(--gold);">60%</div>
+              <div style="font-size:11px;color:var(--text2);">High</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMP CHART -->
+    <div class="glass-card">
+      <div class="sec-header">
+        <div class="sec-title">Temperature Trend — Today</div>
+        <div class="sec-badge">Live</div>
+      </div>
+      <div style="position:relative;width:100%;height:200px;">
+        <canvas id="tempChart" role="img" aria-label="Temperature trend chart for today showing hourly temperatures from 6AM to 9PM">Temperature ranges from 27°C at 6AM to 34°C at 4PM.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FORECAST PAGE ==================== -->
+  <div class="page" id="page-forecast">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Extended Forecast</div>
+        <div class="sec-badge">30-Day View</div>
+      </div>
+    </div>
+    <div class="tab-group">
+      <button class="tab active" onclick="setTab(this)">7-Day</button>
+      <button class="tab" onclick="setTab(this)">15-Day</button>
+      <button class="tab" onclick="setTab(this)">Monthly</button>
+      <button class="tab" onclick="setTab(this)">Seasonal</button>
+    </div>
+    <div class="glass-card" style="margin-bottom:16px;">
+      <div class="sec-title" style="margin-bottom:12px;">Weekly Rainfall Forecast</div>
+      <div style="position:relative;width:100%;height:220px;">
+        <canvas id="rainfallChart" role="img" aria-label="Weekly rainfall forecast bar chart">Rainfall varies from 2mm to 35mm across the week.</canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="glass-card">
+        <div class="sec-title" style="margin-bottom:12px;">Humidity Forecast</div>
+        <div style="position:relative;width:100%;height:180px;">
+          <canvas id="humidChart" role="img" aria-label="Humidity forecast chart">Humidity ranges from 55% to 82%.</canvas>
+        </div>
+      </div>
+      <div class="glass-card">
+        <div class="sec-title" style="margin-bottom:12px;">Wind Speed Forecast</div>
+        <div style="position:relative;width:100%;height:180px;">
+          <canvas id="windChart" role="img" aria-label="Wind speed forecast chart">Wind speeds range from 8 to 28 km/h.</canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ANALYTICS (OLAP) PAGE ==================== -->
+  <div class="page" id="page-analytics">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">OLAP Weather Analytics</div>
+        <div class="sec-badge">Data Warehouse</div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);">Multi-dimensional analysis using OLAP cube operations on weather data warehouse</div>
+    </div>
+
+    <!-- OLAP SCHEMA -->
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="olap-cube">
+        <div class="cube-title">📊 Fact Table — weather_facts</div>
+        <div>
+          <div class="fact-pill">🌡️ temperature_avg</div>
+          <div class="fact-pill">🌧️ rainfall_mm</div>
+          <div class="fact-pill">💧 humidity_pct</div>
+          <div class="fact-pill">💨 wind_speed_kmh</div>
+          <div class="fact-pill">🏭 aqi_value</div>
+          <div class="fact-pill">☀️ uv_index</div>
+          <div class="fact-pill">📊 pressure_hpa</div>
+        </div>
+      </div>
+      <div class="olap-cube">
+        <div class="cube-title">🔷 Dimension Tables</div>
+        <div>
+          <div class="dim-pill">📅 dim_time (year/quarter/month/day)</div>
+          <div class="dim-pill">📍 dim_location (country/state/city)</div>
+          <div class="dim-pill">🌿 dim_climate (zone/type)</div>
+          <div class="dim-pill">🍂 dim_season (SW/NE monsoon)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OLAP OPERATIONS -->
+    <div class="glass-card" style="margin-bottom:16px;">
+      <div class="sec-header">
+        <div class="sec-title">OLAP Operations</div>
+      </div>
+      <div class="tab-group">
+        <button class="tab active" onclick="setTab(this);showOlapOp('rollup')">Roll-Up</button>
+        <button class="tab" onclick="setTab(this);showOlapOp('drilldown')">Drill-Down</button>
+        <button class="tab" onclick="setTab(this);showOlapOp('slice')">Slice</button>
+        <button class="tab" onclick="setTab(this);showOlapOp('dice')">Dice</button>
+        <button class="tab" onclick="setTab(this);showOlapOp('pivot')">Pivot</button>
+      </div>
+
+      <div id="olap-rollup">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Aggregating temperature from daily → monthly → yearly view</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span style="padding:6px 14px;background:var(--cyan3);border:1px solid var(--border2);border-radius:20px;font-size:12px;color:var(--cyan);">Day →</span>
+          <span style="padding:6px 14px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:20px;font-size:12px;color:var(--gold);">Month →</span>
+          <span style="padding:6px 14px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:20px;font-size:12px;color:var(--green);">Quarter →</span>
+          <span style="padding:6px 14px;background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.3);border-radius:20px;font-size:12px;color:var(--red);">Year</span>
+        </div>
+        <div style="position:relative;width:100%;height:200px;">
+          <canvas id="rollupChart" role="img" aria-label="Roll-up aggregation showing yearly average temperatures">Yearly temperatures from 2020 to 2024.</canvas>
+        </div>
+      </div>
+
+      <div id="olap-drilldown" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Drilling down from India → Tamil Nadu → Chennai → District</div>
+        <div style="position:relative;width:100%;height:200px;">
+          <canvas id="drillChart" role="img" aria-label="Drill-down chart showing city temperatures">District-level temperature comparison.</canvas>
+        </div>
+      </div>
+
+      <div id="olap-slice" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Slice: Fixed dimension = Summer 2024, all cities, all weather metrics</div>
+        <div style="position:relative;width:100%;height:200px;">
+          <canvas id="sliceChart" role="img" aria-label="Slice showing summer 2024 metrics across cities">Summer 2024 temperature slice across cities.</canvas>
+        </div>
+      </div>
+
+      <div id="olap-dice" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Dice: Tamil Nadu + Kerala, Jun-Sep (Monsoon), Temperature + Humidity</div>
+        <div style="position:relative;width:100%;height:200px;">
+          <canvas id="diceChart" role="img" aria-label="Dice showing two states monsoon comparison">State comparison for monsoon months.</canvas>
+        </div>
+      </div>
+
+      <div id="olap-pivot" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Pivot Table: Rows = Months | Columns = Cities | Values = Avg Temp (°C)</div>
+        <div style="overflow-x:auto;">
+          <table class="pivot-table">
+            <thead>
+              <tr><th>Month</th><th>Chennai</th><th>Coimbatore</th><th>Madurai</th><th>Salem</th><th>Trichy</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Jan</td><td class="cell-cool">25.1</td><td>22.4</td><td>26.3</td><td>23.8</td><td>25.9</td></tr>
+              <tr><td>Feb</td><td>27.3</td><td>24.1</td><td>28.7</td><td>25.2</td><td>27.4</td></tr>
+              <tr><td>Mar</td><td>29.8</td><td>26.9</td><td>31.2</td><td>28.1</td><td>30.0</td></tr>
+              <tr><td>Apr</td><td class="cell-hot">33.4</td><td>30.1</td><td>35.6</td><td>32.4</td><td>34.1</td></tr>
+              <tr><td>May</td><td class="cell-hot">35.2</td><td>31.8</td><td>37.9</td><td>34.6</td><td>36.3</td></tr>
+              <tr><td>Jun</td><td>31.5</td><td>28.4</td><td>33.8</td><td>30.2</td><td>32.1</td></tr>
+              <tr><td>Jul</td><td>29.7</td><td>26.5</td><td>31.4</td><td>28.6</td><td>30.3</td></tr>
+              <tr><td>Aug</td><td>29.3</td><td>26.1</td><td>30.9</td><td>28.0</td><td>29.8</td></tr>
+              <tr><td>Sep</td><td>29.8</td><td>26.8</td><td>31.6</td><td>28.9</td><td>30.5</td></tr>
+              <tr><td>Oct</td><td>28.4</td><td>25.6</td><td>30.1</td><td>27.3</td><td>29.0</td></tr>
+              <tr><td>Nov</td><td class="cell-cool">26.2</td><td>23.8</td><td>28.4</td><td>25.0</td><td>27.1</td></tr>
+              <tr><td>Dec</td><td class="cell-ok">24.8</td><td>21.9</td><td>26.5</td><td>23.2</td><td>25.4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORICAL ANALYSIS -->
+    <div class="glass-card">
+      <div class="sec-title" style="margin-bottom:12px;">Historical — 5 Year Temperature Comparison</div>
+      <div style="position:relative;width:100%;height:220px;">
+        <canvas id="histChart" role="img" aria-label="5-year monthly temperature comparison">Historical temperature trends 2020-2024.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ML PREDICTION PAGE ==================== -->
+  <div class="page" id="page-prediction">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">ML Weather Prediction</div>
+        <div class="sec-badge">AI Powered</div>
+      </div>
+    </div>
+    <div class="grid-3" style="margin-bottom:20px;">
+      <div class="pred-card">
+        <div class="pred-label">Predicted Temperature</div>
+        <div class="pred-val">33.4°C</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Tomorrow at 2 PM</div>
+        <div class="confidence">
+          <div class="conf-bar"><div class="conf-fill" style="width:87%;"></div></div>
+          <div class="conf-text">87%</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">Linear Regression · R²=0.94</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(0,60,120,0.3),rgba(0,30,80,0.5));border:1px solid rgba(0,150,255,0.25);border-radius:12px;padding:16px;">
+        <div class="pred-label">Rain Probability</div>
+        <div style="font-family:var(--font2);font-size:28px;color:#60aaff;font-weight:700;">62%</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Next 24 hours</div>
+        <div class="confidence">
+          <div class="conf-bar"><div class="conf-fill" style="width:76%;background:#60aaff;"></div></div>
+          <div class="conf-text" style="color:#60aaff;">76%</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">Logistic Regression · AUC=0.89</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(100,0,150,0.2),rgba(60,0,100,0.4));border:1px solid rgba(150,100,255,0.25);border-radius:12px;padding:16px;">
+        <div class="pred-label">Humidity Trend</div>
+        <div style="font-family:var(--font2);font-size:28px;color:#aa88ff;font-weight:700;">74%</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Tomorrow morning</div>
+        <div class="confidence">
+          <div class="conf-bar"><div class="conf-fill" style="width:82%;background:#aa88ff;"></div></div>
+          <div class="conf-text" style="color:#aa88ff;">82%</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">ARIMA Time Series · RMSE=2.1</div>
+      </div>
+    </div>
+
+    <div class="glass-card" style="margin-bottom:16px;">
+      <div class="sec-header">
+        <div class="sec-title">Temperature Prediction — Next 14 Days</div>
+        <div style="display:flex;gap:12px;font-size:11px;">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:var(--cyan);display:inline-block;"></span>Actual</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:var(--orange);display:inline-block;border-top:1px dashed var(--orange);"></span>Predicted</span>
+        </div>
+      </div>
+      <div style="position:relative;width:100%;height:240px;">
+        <canvas id="predChart" role="img" aria-label="Temperature prediction chart showing actual vs predicted values">14-day temperature forecast comparison.</canvas>
+      </div>
+    </div>
+
+    <div class="glass-card">
+      <div class="sec-title" style="margin-bottom:12px;">Model Performance Metrics</div>
+      <div class="grid-4">
+        <div style="text-align:center;padding:14px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:var(--font2);font-size:22px;color:var(--cyan);">0.94</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">R² Score</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:var(--font2);font-size:22px;color:var(--green);">1.82</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">RMSE (°C)</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:var(--font2);font-size:22px;color:var(--gold);">1.41</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">MAE (°C)</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:var(--glass2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:var(--font2);font-size:22px;color:var(--orange);">4.2%</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">MAPE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ALERTS PAGE ==================== -->
+  <div class="page" id="page-alerts">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Weather Alerts</div>
+        <div class="sec-badge" style="background:rgba(255,77,109,0.15);border-color:rgba(255,77,109,0.4);color:var(--red);">3 Active</div>
+      </div>
+    </div>
+    <div class="alert-card danger">
+      <div class="alert-icon">🌩️</div>
+      <div>
+        <div class="alert-title" style="color:var(--red);">Thunderstorm Warning</div>
+        <div class="alert-desc">Severe thunderstorm activity expected in Chennai Metropolitan Area. Lightning risk is high. Avoid open areas and high ground.</div>
+        <div class="alert-time">⏱ Active until: May 9, 2026 — 8:00 PM IST</div>
+      </div>
+    </div>
+    <div class="alert-card warning">
+      <div class="alert-icon">🌊</div>
+      <div>
+        <div class="alert-title" style="color:var(--orange);">High Tide Advisory</div>
+        <div class="alert-desc">Coastal areas of Chennai, Cuddalore, and Pondicherry may experience rough sea conditions. Fishing activities suspended.</div>
+        <div class="alert-time">⏱ Active until: May 10, 2026 — 6:00 AM IST</div>
+      </div>
+    </div>
+    <div class="alert-card warning">
+      <div class="alert-icon">🌡️</div>
+      <div>
+        <div class="alert-title" style="color:var(--orange);">Heat Advisory — Interior Districts</div>
+        <div class="alert-desc">Temperature expected to reach 40–43°C in Vellore, Salem, Dharmapuri. Heat stroke risk. Stay hydrated.</div>
+        <div class="alert-time">⏱ Active: Next 72 hours</div>
+      </div>
+    </div>
+    <div class="alert-card info">
+      <div class="alert-icon">🌧️</div>
+      <div>
+        <div class="alert-title" style="color:var(--cyan);">Northeast Monsoon Update</div>
+        <div class="alert-desc">IMD forecasts above-normal rainfall for Tamil Nadu this season. Water conservation measures in effect in some districts.</div>
+        <div class="alert-time">⏱ Season Alert — Oct–Dec 2026</div>
+      </div>
+    </div>
+    <div class="alert-card info" style="border-color:var(--green);background:rgba(0,255,136,0.08);">
+      <div class="alert-icon">✅</div>
+      <div>
+        <div class="alert-title" style="color:var(--green);">All Clear — Northern Districts</div>
+        <div class="alert-desc">No active weather warnings for Erode, Namakkal, Tiruppur regions. Fair weather expected for next 48 hours.</div>
+        <div class="alert-time">⏱ Issued: May 9, 2026 — 10:00 AM IST</div>
+      </div>
+    </div>
+    <div class="glass-card" style="margin-top:20px;">
+      <div class="sec-title" style="margin-bottom:12px;">Alert Notification Settings</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;">Heavy Rain Alert</div><div style="font-size:11px;color:var(--text3);">Notify when rainfall > 50mm/day</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;">Cyclone Warning</div><div style="font-size:11px;color:var(--text3);">Bay of Bengal cyclone tracking</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;">Temperature Extreme</div><div style="font-size:11px;color:var(--text3);">Alert above 42°C or below 10°C</div></div>
+          <div class="toggle" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+          <div><div style="font-size:13px;">Flood Warning</div><div style="font-size:11px;color:var(--text3);">River level monitoring alerts</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAP PAGE ==================== -->
+  <div class="page" id="page-map">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Weather Map</div>
+        <div class="sec-badge">Live View</div>
+      </div>
+    </div>
+    <div class="tab-group">
+      <button class="tab active" onclick="setTab(this)">Temperature</button>
+      <button class="tab" onclick="setTab(this)">Precipitation</button>
+      <button class="tab" onclick="setTab(this)">Wind</button>
+      <button class="tab" onclick="setTab(this)">AQI</button>
+    </div>
+    <div class="map-placeholder" style="height:360px;margin-bottom:16px;">
+      <div class="map-grid"></div>
+      <div class="map-ring"></div>
+      <div class="map-ring map-ring2"></div>
+      <div class="map-dot"></div>
+      <div style="text-align:center;z-index:2;">
+        <div style="font-size:32px;margin-bottom:8px;">🗺️</div>
+        <div style="font-family:var(--font2);font-size:14px;color:var(--cyan);letter-spacing:2px;">INTERACTIVE MAP</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px;">Leaflet.js + OpenStreetMap Integration</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Tamil Nadu · 13.08°N 80.27°E</div>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <span style="background:rgba(255,80,80,0.3);padding:4px 10px;border-radius:10px;font-size:11px;color:var(--red);">🔴 Chennai 31°C</span>
+          <span style="background:rgba(255,150,0,0.3);padding:4px 10px;border-radius:10px;font-size:11px;color:var(--orange);">🟠 Salem 38°C</span>
+          <span style="background:rgba(0,200,100,0.3);padding:4px 10px;border-radius:10px;font-size:11px;color:var(--green);">🟢 Ooty 18°C</span>
+          <span style="background:rgba(0,150,255,0.3);padding:4px 10px;border-radius:10px;font-size:11px;color:var(--cyan);">🔵 Kodai 22°C</span>
+        </div>
+      </div>
+    </div>
+    <div class="glass-card">
+      <div class="sec-title" style="margin-bottom:12px;">Tamil Nadu District Weather Summary</div>
+      <div style="position:relative;width:100%;height:220px;">
+        <canvas id="mapChart" role="img" aria-label="Bar chart of district temperatures across Tamil Nadu">District temperatures ranging from 18°C in Ooty to 42°C in Vellore.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== REPORTS PAGE ==================== -->
+  <div class="page" id="page-reports">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Reports & Export</div>
+        <div class="sec-badge">Generate</div>
+      </div>
+    </div>
+    <div class="grid-3" style="margin-bottom:20px;">
+      <div class="glass-card" style="cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:36px;margin-bottom:10px;">📄</div>
+        <div style="font-family:var(--font2);font-size:13px;color:var(--cyan);margin-bottom:6px;">PDF Report</div>
+        <div style="font-size:12px;color:var(--text3);">Full weather analysis with charts and OLAP insights</div>
+        <button style="margin-top:14px;width:100%;background:var(--cyan);border:none;border-radius:6px;padding:8px;font-family:var(--font2);font-size:11px;color:#000;cursor:pointer;letter-spacing:1px;">GENERATE PDF</button>
+      </div>
+      <div class="glass-card" style="cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:36px;margin-bottom:10px;">📊</div>
+        <div style="font-family:var(--font2);font-size:13px;color:var(--green);margin-bottom:6px;">Excel Report</div>
+        <div style="font-size:12px;color:var(--text3);">Raw data export with pivot tables and histograms</div>
+        <button style="margin-top:14px;width:100%;background:var(--green);border:none;border-radius:6px;padding:8px;font-family:var(--font2);font-size:11px;color:#000;cursor:pointer;letter-spacing:1px;">EXPORT EXCEL</button>
+      </div>
+      <div class="glass-card" style="cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:36px;margin-bottom:10px;">📧</div>
+        <div style="font-family:var(--font2);font-size:13px;color:var(--gold);margin-bottom:6px;">Email Summary</div>
+        <div style="font-size:12px;color:var(--text3);">Automated daily/weekly weather digest email</div>
+        <button style="margin-top:14px;width:100%;background:var(--gold);border:none;border-radius:6px;padding:8px;font-family:var(--font2);font-size:11px;color:#000;cursor:pointer;letter-spacing:1px;">SCHEDULE EMAIL</button>
+      </div>
+    </div>
+    <div class="glass-card">
+      <div class="sec-title" style="margin-bottom:12px;">Recent Reports</div>
+      <table class="data-table" style="width:100%;">
+        <thead><tr><th>Report Name</th><th>Type</th><th>Period</th><th>Generated</th><th>Size</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Chennai May 2026 Summary</td><td><span class="status-pill status-active">PDF</span></td><td>May 2026</td><td>2 hrs ago</td><td>2.4 MB</td><td><button class="action-btn">⬇ Download</button></td></tr>
+          <tr><td>TN Monsoon Forecast Q3</td><td><span class="status-pill" style="background:rgba(0,255,136,0.15);color:var(--green);">XLS</span></td><td>Q3 2026</td><td>Yesterday</td><td>1.8 MB</td><td><button class="action-btn">⬇ Download</button></td></tr>
+          <tr><td>Annual Climate Report 2025</td><td><span class="status-pill status-active">PDF</span></td><td>Year 2025</td><td>3 days ago</td><td>8.2 MB</td><td><button class="action-btn">⬇ Download</button></td></tr>
+          <tr><td>OLAP Analytics Dashboard</td><td><span class="status-pill status-warn">XLS</span></td><td>Apr 2026</td><td>1 week ago</td><td>3.1 MB</td><td><button class="action-btn">⬇ Download</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== ABOUT PAGE ==================== -->
+  <div class="page" id="page-about">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">About This Project</div>
+        <div class="sec-badge">Documentation</div>
+      </div>
+    </div>
+    <div class="glass-card" style="margin-bottom:16px;">
+      <div style="font-family:var(--font2);font-size:20px;color:var(--cyan);letter-spacing:2px;margin-bottom:8px;">🌩️ Weather Forecasting System Using OLAP</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <span class="dim-pill">B.Tech AI & Data Science</span>
+        <span class="dim-pill">Mini Project 2025–26</span>
+        <span class="fact-pill">Dept. of CS & IT</span>
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:14px;">
+        <strong style="color:var(--text);">Abstract:</strong> This system integrates real-time weather data acquisition with OLAP-based multi-dimensional analysis. Using a star-schema data warehouse, weather observations across Tamil Nadu are transformed into analytical insights via roll-up, drill-down, slice, dice, and pivot operations. Machine learning modules provide short-term forecasting with 87–94% accuracy.
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;">
+        <strong style="color:var(--text);">Problem Statement:</strong> Traditional weather portals lack multi-dimensional analytics capability. Historical weather patterns, aggregated across time, location, and climate zones, remain underutilized for decision-making in agriculture, disaster management, and urban planning.
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="glass-card">
+        <div class="sec-title" style="margin-bottom:12px;">System Architecture</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="arch-node"><div class="arch-label">OpenWeatherMap API</div><div class="arch-detail">Real-time data source</div></div>
+          <div style="text-align:center;color:var(--cyan);font-size:18px;">↓</div>
+          <div class="arch-node"><div class="arch-label">Node.js + Express Backend</div><div class="arch-detail">ETL + API Gateway</div></div>
+          <div style="text-align:center;color:var(--cyan);font-size:18px;">↓</div>
+          <div class="arch-node"><div class="arch-label">PostgreSQL Data Warehouse</div><div class="arch-detail">Star Schema OLAP Store</div></div>
+          <div style="text-align:center;color:var(--cyan);font-size:18px;">↓</div>
+          <div class="arch-node"><div class="arch-label">React Frontend</div><div class="arch-detail">Dashboard + Visualization</div></div>
+        </div>
+      </div>
+      <div class="glass-card">
+        <div class="sec-title" style="margin-bottom:12px;">Database Schema</div>
+        <div class="schema-box">
+-- FACT TABLE
+CREATE TABLE weather_facts (
+  fact_id SERIAL PRIMARY KEY,
+  time_id INT REFERENCES dim_time,
+  location_id INT REFERENCES dim_location,
+  climate_id INT REFERENCES dim_climate,
+  season_id INT REFERENCES dim_season,
+  temperature_avg DECIMAL(5,2),
+  temperature_max DECIMAL(5,2),
+  rainfall_mm DECIMAL(6,2),
+  humidity_pct INT,
+  wind_speed_kmh DECIMAL(5,1),
+  pressure_hpa INT,
+  aqi_value INT,
+  uv_index INT
+);
+
+-- TIME DIMENSION
+CREATE TABLE dim_time (
+  time_id SERIAL PRIMARY KEY,
+  date_actual DATE,
+  day_of_week VARCHAR(10),
+  month_num INT, month_name VARCHAR(15),
+  quarter INT, year INT, is_weekend BOOLEAN
+);
+
+-- LOCATION DIMENSION
+CREATE TABLE dim_location (
+  location_id SERIAL PRIMARY KEY,
+  city VARCHAR(100), district VARCHAR(100),
+  state VARCHAR(100), country VARCHAR(50),
+  latitude DECIMAL(8,4), longitude DECIMAL(8,4),
+  altitude_m INT, climate_zone VARCHAR(50)
+);</div>
+      </div>
+    </div>
+    <div class="glass-card">
+      <div class="sec-title" style="margin-bottom:12px;">OLAP Cube Architecture</div>
+      <div class="grid-4" style="margin-bottom:12px;">
+        <div style="text-align:center;padding:12px;background:var(--cyan3);border:1px solid var(--border2);border-radius:8px;">
+          <div style="font-size:24px;">📅</div>
+          <div style="font-family:var(--font2);font-size:11px;color:var(--cyan);margin-top:6px;">Time Dimension</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">Day → Month → Quarter → Year</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;">
+          <div style="font-size:24px;">📍</div>
+          <div style="font-family:var(--font2);font-size:11px;color:var(--gold);margin-top:6px;">Location Dimension</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">City → District → State → Country</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:8px;">
+          <div style="font-size:24px;">🌿</div>
+          <div style="font-family:var(--font2);font-size:11px;color:var(--green);margin-top:6px;">Climate Dimension</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">Tropical · Semi-Arid · Highland</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.25);border-radius:8px;">
+          <div style="font-size:24px;">🍂</div>
+          <div style="font-family:var(--font2);font-size:11px;color:var(--red);margin-top:6px;">Season Dimension</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">SW Monsoon · NE Monsoon · Summer</div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:16px;background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);border-radius:8px;">
+        <div style="font-family:var(--font2);font-size:12px;color:var(--gold);">⭐ FACT TABLE — weather_facts</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">temperature · rainfall · humidity · wind · pressure · AQI · UV</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONTACT PAGE ==================== -->
+  <div class="page" id="page-contact">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Contact & Team</div>
+        <div class="sec-badge">Get in Touch</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="glass-card contact-form">
+        <div class="sec-title" style="margin-bottom:14px;">Send a Message</div>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" placeholder="Your full name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <input type="text" class="form-input" placeholder="Query / Feedback / Bug Report">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-input" rows="4" style="resize:vertical;" placeholder="Type your message here..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="alert('Message sent successfully! 📧')">SEND MESSAGE</button>
+      </div>
+      <div>
+        <div class="glass-card" style="margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:14px;">Project Team</div>
+          <div class="info-row">
+            <div class="info-icon">👨‍💻</div>
+            <div><div style="font-size:13px;">Project Lead / Developer</div><div style="font-size:11px;color:var(--text3);">AI & Data Science, 3rd Year</div></div>
+          </div>
+          <div class="info-row">
+            <div class="info-icon">👩‍🏫</div>
+            <div><div style="font-size:13px;">Faculty Guide</div><div style="font-size:11px;color:var(--text3);">Dept. of Computer Science & IT</div></div>
+          </div>
+          <div class="info-row" style="border:none;">
+            <div class="info-icon">🏫</div>
+            <div><div style="font-size:13px;">Institution</div><div style="font-size:11px;color:var(--text3);">Tamil Nadu · India</div></div>
+          </div>
+        </div>
+        <div class="glass-card">
+          <div class="sec-title" style="margin-bottom:14px;">Tech Stack Used</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span class="dim-pill">React.js</span>
+            <span class="dim-pill">Node.js</span>
+            <span class="dim-pill">Express.js</span>
+            <span class="dim-pill">PostgreSQL</span>
+            <span class="fact-pill">Chart.js</span>
+            <span class="fact-pill">Leaflet.js</span>
+            <span class="dim-pill">OpenWeatherMap</span>
+            <span class="dim-pill">JWT Auth</span>
+            <span class="fact-pill">OLAP Cube</span>
+            <span class="fact-pill">Linear Regression</span>
+            <span class="dim-pill">ARIMA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN PAGE ==================== -->
+  <div class="page" id="page-admin">
+    <div style="margin-bottom:20px;">
+      <div class="sec-header">
+        <div class="sec-title">Admin Panel</div>
+        <div class="sec-badge">🔐 Restricted</div>
+      </div>
+    </div>
+    <div class="grid-4" style="margin-bottom:20px;">
+      <div class="admin-stat"><div class="admin-num">2,847</div><div class="admin-label">Total Data Records</div></div>
+      <div class="admin-stat"><div class="admin-num" style="color:var(--green);">12</div><div class="admin-label">Registered Users</div></div>
+      <div class="admin-stat"><div class="admin-num" style="color:var(--orange);">5</div><div class="admin-label">Cities Monitored</div></div>
+      <div class="admin-stat"><div class="admin-num" style="color:var(--red);">3</div><div class="admin-label">Active Alerts</div></div>
+    </div>
+    <div class="glass-card" style="margin-bottom:16px;">
+      <div class="sec-header">
+        <div class="sec-title">User Management</div>
+        <button class="sec-btn" onclick="alert('Add user form opened')">+ Add User</button>
+      </div>
+      <table class="data-table" style="width:100%;">
+        <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Admin User</td><td>admin@atmosense.in</td><td>Admin</td><td>Now</td><td><span class="status-pill status-active">Active</span></td><td><button class="action-btn">Edit</button></td></tr>
+          <tr><td>Researcher 1</td><td>r1@univ.edu</td><td>Analyst</td><td>2h ago</td><td><span class="status-pill status-active">Active</span></td><td><button class="action-btn">Edit</button> <button class="action-btn" style="border-color:var(--red);color:var(--red);">Delete</button></td></tr>
+          <tr><td>Student Demo</td><td>demo@btech.edu</td><td>Viewer</td><td>1d ago</td><td><span class="status-pill status-warn">Idle</span></td><td><button class="action-btn">Edit</button> <button class="action-btn" style="border-color:var(--red);color:var(--red);">Delete</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="glass-card">
+      <div class="sec-header">
+        <div class="sec-title">Dataset Management</div>
+        <button class="sec-btn" onclick="alert('Upload CSV dataset')">+ Upload Dataset</button>
+      </div>
+      <table class="data-table" style="width:100%;">
+        <thead><tr><th>Dataset</th><th>Records</th><th>Period</th><th>Source</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Chennai 2024 Historical</td><td>8,760</td><td>Jan–Dec 2024</td><td>IMD</td><td><span class="status-pill status-active">Loaded</span></td></tr>
+          <tr><td>TN District Weather Q1</td><td>2,190</td><td>Jan–Mar 2026</td><td>OpenWeather</td><td><span class="status-pill status-active">Loaded</span></td></tr>
+          <tr><td>Monsoon Rainfall 2020-25</td><td>1,826</td><td>5 Years</td><td>IMD</td><td><span class="status-pill status-warn">Processing</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== LOGIN PAGE ==================== -->
+  <div class="page" id="page-login">
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <div style="font-size:40px;">🌩️</div>
+          <div class="auth-title" style="margin-top:10px;">ATMOSENSE</div>
+          <div class="auth-sub">Weather Forecasting System Using OLAP</div>
+        </div>
+        <div class="role-toggle">
+          <button class="role-btn active" onclick="this.parentElement.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">👤 User Login</button>
+          <button class="role-btn" onclick="this.parentElement.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">🔐 Admin Login</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" placeholder="user@example.com" value="admin@atmosense.in">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" placeholder="Enter your password" value="••••••••">
+        </div>
+        <button class="btn-primary" onclick="showPage('dashboard')">LOGIN →</button>
+        <div class="auth-links">
+          <a class="auth-link" onclick="showPage('register')">Create Account</a>
+          <a class="auth-link" onclick="showPage('forgot')">Forgot Password?</a>
+        </div>
+        <div class="divider">or</div>
+        <button onclick="showPage('register')" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text2);font-family:var(--font);font-size:13px;cursor:pointer;">Register New Account</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end main -->
+</div><!-- end app -->
+
+<script>
+// CLOCK
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleTimeString('en-IN',{hour12:false});
+}
+setInterval(updateClock,1000);updateClock();
+
+// PAGE NAVIGATION
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  if(pg)pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'")){n.classList.add('active');}
+  });
+  window.scrollTo(0,0);
+  if(id==='analytics')setTimeout(()=>{initOlapCharts();initHistChart();},100);
+  if(id==='forecast')setTimeout(()=>{initForecastCharts();},100);
+  if(id==='prediction')setTimeout(()=>{initPredCharts();},100);
+  if(id==='map')setTimeout(()=>{initMapChart();},100);
+}
+
+// SIDEBAR TOGGLE
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('expanded');
+}
+
+// TABS
+function setTab(el){
+  el.closest('.tab-group').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// OLAP OPS
+function showOlapOp(op){
+  ['rollup','drilldown','slice','dice','pivot'].forEach(o=>{
+    const el=document.getElementById('olap-'+o);
+    if(el)el.style.display=o===op?'block':'none';
+  });
+  if(op==='rollup')setTimeout(initRollupChart,50);
+  if(op==='drilldown')setTimeout(initDrillChart,50);
+  if(op==='slice')setTimeout(initSliceChart,50);
+  if(op==='dice')setTimeout(initDiceChart,50);
+}
+
+// SEARCH
+function searchCity(){
+  const v=document.getElementById('searchInput').value;
+  if(v)alert('Fetching weather for: '+v+'\n(OpenWeatherMap API integration active)');
+}
+
+// === CHARTS ===
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Temp chart (dashboard)
+window.addEventListener('load',function(){
+  const ctx=document.getElementById('tempChart');
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:['6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM'],
+      datasets:[{
+        label:'Temperature (°C)',
+        data:[27,27.5,28.2,29.1,30.4,31.8,32.5,32.8,33.1,33.8,34.0,33.2,32.1,31.0,29.8,28.5],
+        borderColor:'#00d4ff',
+        backgroundColor:'rgba(0,212,255,0.08)',
+        borderWidth:2,fill:true,tension:0.4,
+        pointBackgroundColor:'#00d4ff',pointRadius:3,pointHoverRadius:5
+      },{
+        label:'Feels Like (°C)',
+        data:[28,28.5,29.4,31,33,35,36.2,36.8,37.2,37.8,38,36.8,35,33.2,31.5,30],
+        borderColor:'#ff9500',borderWidth:1.5,fill:false,tension:0.4,
+        borderDash:[4,3],pointRadius:2
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},
+        y:{ticks:{color:'#4a7a9b',font:{size:10},callback:v=>v+'°'},grid:{color:'rgba(0,212,255,0.05)'},min:25,max:40}
+      }
+    }
+  });
+});
+
+// FORECAST CHARTS
+let fcCharts={};
+function initForecastCharts(){
+  Object.values(fcCharts).forEach(c=>c.destroy());fcCharts={};
+  const r=document.getElementById('rainfallChart');
+  if(r)fcCharts.r=new Chart(r,{type:'bar',data:{labels:DAYS,datasets:[{label:'Rainfall (mm)',data:[8,35,22,2,5,12,28],backgroundColor:['rgba(0,212,255,0.6)','rgba(0,212,255,0.9)','rgba(0,212,255,0.7)','rgba(0,212,255,0.2)','rgba(0,212,255,0.25)','rgba(0,212,255,0.45)','rgba(0,212,255,0.8)'],borderColor:'#00d4ff',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',font:{size:10},callback:v=>v+'mm'},grid:{color:'rgba(0,212,255,0.05)'},min:0}}}});
+  const h=document.getElementById('humidChart');
+  if(h)fcCharts.h=new Chart(h,{type:'line',data:{labels:DAYS,datasets:[{label:'Humidity %',data:[78,82,75,55,60,65,80],borderColor:'#60aaff',backgroundColor:'rgba(96,170,255,0.1)',fill:true,tension:0.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(0,212,255,0.05)'},min:40,max:100}}}});
+  const w=document.getElementById('windChart');
+  if(w)fcCharts.w=new Chart(w,{type:'bar',data:{labels:DAYS,datasets:[{label:'Wind km/h',data:[22,28,18,10,12,15,24],backgroundColor:'rgba(0,255,136,0.5)',borderColor:'#00ff88',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',font:{size:10},callback:v=>v+' km/h'},grid:{color:'rgba(0,212,255,0.05)'},min:0}}}});
+}
+
+// OLAP CHARTS
+let olapCharts={};
+function initOlapCharts(){
+  initRollupChart();
+}
+function initRollupChart(){
+  const c=document.getElementById('rollupChart');
+  if(!c)return;
+  if(olapCharts.r)olapCharts.r.destroy();
+  olapCharts.r=new Chart(c,{type:'bar',data:{labels:['2020','2021','2022','2023','2024'],datasets:[{label:'Avg Temp (°C)',data:[29.4,29.7,30.1,30.4,30.8],backgroundColor:['rgba(0,212,255,0.5)','rgba(0,212,255,0.6)','rgba(0,212,255,0.7)','rgba(0,212,255,0.8)','rgba(0,212,255,0.9)'],borderColor:'#00d4ff',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b'},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'°C'},grid:{color:'rgba(0,212,255,0.05)'},min:28,max:32}}}});
+}
+function initDrillChart(){
+  const c=document.getElementById('drillChart');
+  if(!c)return;
+  if(olapCharts.d)olapCharts.d.destroy();
+  olapCharts.d=new Chart(c,{type:'bar',data:{labels:['Erode','Coimbatore','Salem','Namakkal','Trichy','Madurai','Dindigul'],datasets:[{label:'Avg Temp May (°C)',data:[36.2,33.1,37.8,35.4,34.9,36.8,35.1],backgroundColor:'rgba(255,149,0,0.6)',borderColor:'#ff9500',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'°'},grid:{color:'rgba(0,212,255,0.05)'},min:30,max:40}}}});
+}
+function initSliceChart(){
+  const c=document.getElementById('sliceChart');
+  if(!c)return;
+  if(olapCharts.s)olapCharts.s.destroy();
+  olapCharts.s=new Chart(c,{type:'radar',data:{labels:['Temp','Humidity','Wind','Pressure','AQI','UV'],datasets:[{label:'Chennai',data:[85,78,60,72,55,88],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.1)',borderWidth:2},{label:'Coimbatore',data:[70,65,55,78,40,80],borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.1)',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{ticks:{color:'#4a7a9b',font:{size:9}},grid:{color:'rgba(0,212,255,0.1)'},angleLines:{color:'rgba(0,212,255,0.1)'}}}}});
+}
+function initDiceChart(){
+  const c=document.getElementById('diceChart');
+  if(!c)return;
+  if(olapCharts.dc)olapCharts.dc.destroy();
+  olapCharts.dc=new Chart(c,{type:'line',data:{labels:['Jun','Jul','Aug','Sep'],datasets:[{label:'TN Rainfall (mm)',data:[85,140,110,200],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.1)',fill:true,tension:0.4,borderWidth:2},{label:'Kerala Rainfall (mm)',data:[320,420,380,450],borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.1)',fill:true,tension:0.4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b'},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'mm'},grid:{color:'rgba(0,212,255,0.05)'},min:0}}}});
+}
+function initHistChart(){
+  const c=document.getElementById('histChart');
+  if(!c)return;
+  if(olapCharts.h)olapCharts.h.destroy();
+  olapCharts.h=new Chart(c,{type:'line',data:{labels:MONTHS,datasets:[{label:'2022',data:[25,27,30,33,35,31,29,29,30,28,26,25],borderColor:'rgba(0,212,255,0.4)',borderWidth:1.5,tension:0.4,pointRadius:0},{label:'2023',data:[26,28,31,34,36,32,30,30,30,29,27,26],borderColor:'rgba(0,212,255,0.6)',borderWidth:1.5,tension:0.4,pointRadius:0},{label:'2024',data:[26,28,31,33,36,32,30,29,30,29,27,25],borderColor:'rgba(0,212,255,0.8)',borderWidth:1.5,tension:0.4,pointRadius:0},{label:'2025',data:[27,29,32,35,37,33,31,30,31,30,28,27],borderColor:'#00d4ff',borderWidth:2.5,tension:0.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'°C'},grid:{color:'rgba(0,212,255,0.05)'},min:22,max:40}}}});
+}
+
+// PRED CHARTS
+let predChart=null;
+function initPredCharts(){
+  const c=document.getElementById('predChart');
+  if(!c)return;
+  if(predChart)predChart.destroy();
+  const labels=['May 1','May 2','May 3','May 4','May 5','May 6','May 7','May 8','May 9','May 10','May 11','May 12','May 13','May 14'];
+  const actual=[31,32,33,34,33,31,29,30,31,null,null,null,null,null];
+  const pred=[null,null,null,null,null,null,null,null,31,32,33,34,33,32];
+  predChart=new Chart(c,{type:'line',data:{labels,datasets:[{label:'Actual',data:actual,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.1)',fill:true,tension:0.4,borderWidth:2,pointRadius:4,pointBackgroundColor:'#00d4ff'},{label:'Predicted',data:pred,borderColor:'#ff9500',borderDash:[6,4],backgroundColor:'rgba(255,149,0,0.08)',fill:true,tension:0.4,borderWidth:2,pointRadius:4,pointBackgroundColor:'#ff9500'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'°C'},grid:{color:'rgba(0,212,255,0.05)'},min:26,max:38}}}});
+}
+
+// MAP CHART
+let mapChart=null;
+function initMapChart(){
+  const c=document.getElementById('mapChart');
+  if(!c)return;
+  if(mapChart)mapChart.destroy();
+  mapChart=new Chart(c,{type:'bar',data:{labels:['Ooty','Kodai','Coimbatore','Chennai','Trichy','Madurai','Salem','Vellore'],datasets:[{label:'Temp (°C)',data:[18,22,33,31,34,36,38,42],backgroundColor:['rgba(0,150,255,0.7)','rgba(0,200,200,0.7)','rgba(0,200,100,0.7)','rgba(255,200,0,0.7)','rgba(255,150,0,0.7)','rgba(255,100,0,0.7)','rgba(255,50,0,0.7)','rgba(255,0,0,0.8)'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',callback:v=>v+'°C'},grid:{color:'rgba(0,212,255,0.05)'},min:15,max:45}}}});
+}
+
+// INIT
+showPage('dashboard');
+setTimeout(()=>{
+  const ctx=document.getElementById('tempChart');
+  if(ctx&&!ctx.chart){
+    new Chart(ctx,{type:'line',data:{labels:['6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM'],datasets:[{label:'Temperature (°C)',data:[27,27.5,28.2,29.1,30.4,31.8,32.5,32.8,33.1,33.8,34.0,33.2,32.1,31.0,29.8,28.5],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.08)',borderWidth:2,fill:true,tension:0.4,pointBackgroundColor:'#00d4ff',pointRadius:3},{label:'Feels Like',data:[28,28.5,29.4,31,33,35,36.2,36.8,37.2,37.8,38,36.8,35,33.2,31.5,30],borderColor:'#ff9500',borderWidth:1.5,fill:false,tension:0.4,borderDash:[4,3],pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,212,255,0.05)'}},y:{ticks:{color:'#4a7a9b',font:{size:10},callback:v=>v+'°'},grid:{color:'rgba(0,212,255,0.05)'},min:25,max:40}}}});
+  }
+},400);
+</script>
+</body>
+</html>
